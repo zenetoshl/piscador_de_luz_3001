@@ -28,13 +28,12 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> {
   FlutterBlue flutterBlue = FlutterBlue.instance;
-  List<BluetoothDevice> listD = [];
   BluetoothDevice device;
   BluetoothCharacteristic char;
   int speed = 16;
+  bool loading = false;
 
   void initState() {
-    scanAndConnect();
     super.initState();
   }
 
@@ -69,18 +68,11 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   void scanAndConnect() {
-    flutterBlue
-        .scan(scanMode: ScanMode.balanced, timeout: Duration(seconds: 5))
-        .listen((scanResult) {
-      // do something with scan result
-      BluetoothDevice device = scanResult.device;
-      if (!listD.contains(device)) {
-        setState(() {
-          listD.add(device);
-        });
-      }
-      print(device.name);
-    });
+    if (loading) return;
+    loading = true;
+    flutterBlue.startScan(
+        scanMode: ScanMode.balanced, timeout: Duration(seconds: 4));
+    loading = false;
   }
 
   Future<void> showList() async {
@@ -91,21 +83,25 @@ class _MyHomePageState extends State<MyHomePage> {
           return AlertDialog(
             title: Text('Conectar a um dispositivo'),
             content: SingleChildScrollView(
-              child: Column(
-                children: listD
-                    .map((d) => ListTile(
-                          title: Text(d.name),
-                          subtitle: Text(d.id.toString()),
-                          onTap: () async {
-                            d.connect();
-                            print(d.name);
+              child: StreamBuilder<List<ScanResult>>(
+                stream: FlutterBlue.instance.scanResults,
+                initialData: [],
+                builder: (c, snapshot) => Column(
+                  children: snapshot.data
+                      .map(
+                        (r) => ListTile(
+                          title: Text(r.device.name),
+                          subtitle: Text(r.device.id.toString()),
+                          onTap: () {
+                            r.device.connect();
                             setState(() {
-                              device = d;
-                              speed = 16;
+                              device = r.device;
                             });
                           },
-                        ))
-                    .toList(),
+                        ),
+                      )
+                      .toList(),
+                ),
               ),
             ),
             actions: <Widget>[
@@ -113,8 +109,7 @@ class _MyHomePageState extends State<MyHomePage> {
                 child: Text('Close'),
                 onPressed: () {
                   Navigator.of(context).pop();
-                  if (device != null)
-                    findChar();
+                  if (device != null) findChar();
                 },
               ),
             ],
@@ -124,55 +119,51 @@ class _MyHomePageState extends State<MyHomePage> {
 
   @override
   Widget build(BuildContext context) {
-    return new WillPopScope(
-      onWillPop: () {
-        if (device != null)
-          device.disconnect();
-        return Future<bool>.value(true);
-      },
-      child: Scaffold(
-        appBar: AppBar(
-          title: Text(widget.title),
-          actions:<Widget>[
-            IconButton(
-              onPressed: showList,
-              icon: Icon(Icons.bluetooth),
-            )
-          ],
-        ),
-        body: Center(
-          child:  (device == null) ? null : Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: <Widget>[
-              IconButton(
-                onPressed: () {
-                  if (char != null)
-                    char.write([34], withoutResponse: true);
-                  incrementOrDecrement(true);
-                },
-                icon: Icon(Icons.arrow_drop_up),
-                color: Colors.blue,
-                iconSize: 100,
-                splashColor: Colors.white,
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(widget.title),
+        actions: <Widget>[
+          IconButton(
+            onPressed: () {
+              scanAndConnect();
+              showList();
+            },
+            icon: Icon(Icons.bluetooth),
+          )
+        ],
+      ),
+      body: Center(
+        child: (device == null)
+            ? null
+            : Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: <Widget>[
+                  IconButton(
+                    onPressed: () {
+                      if (char != null) char.write([34], withoutResponse: true);
+                      incrementOrDecrement(true);
+                    },
+                    icon: Icon(Icons.arrow_drop_up),
+                    color: Colors.blue,
+                    iconSize: 100,
+                    splashColor: Colors.white,
+                  ),
+                  Text(
+                    '$speed',
+                    style: Theme.of(context).textTheme.display1,
+                  ),
+                  IconButton(
+                    onPressed: () {
+                      if (char != null) char.write([35], withoutResponse: true);
+                      incrementOrDecrement(false);
+                    },
+                    icon: Icon(Icons.arrow_drop_down),
+                    color: Colors.blue,
+                    iconSize: 100,
+                    splashColor: Colors.white,
+                  )
+                ],
               ),
-              Text(
-                '$speed',
-                style: Theme.of(context).textTheme.display1,
-              ),
-              IconButton(
-                onPressed: () {
-                  if (char != null)
-                    char.write([35], withoutResponse: true);
-                  incrementOrDecrement(false);
-                },
-                icon: Icon(Icons.arrow_drop_down),
-                color: Colors.blue,
-                iconSize: 100,
-                splashColor: Colors.white,
-              )
-            ],
-          ),
-        ),
       ),
     );
   }
