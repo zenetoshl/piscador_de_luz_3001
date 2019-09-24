@@ -30,27 +30,13 @@ class _MyHomePageState extends State<MyHomePage> {
   FlutterBlue flutterBlue = FlutterBlue.instance;
   BluetoothDevice device;
   BluetoothCharacteristic char;
+  BluetoothCharacteristic charS;
   int speed = 16;
   bool loading = false;
+  bool reading = false;
 
   void initState() {
     super.initState();
-  }
-
-  void incrementOrDecrement(bool isIncrement) {
-    if (isIncrement) {
-      if (speed < 31) {
-        setState(() {
-          speed++;
-        });
-      }
-    } else {
-      if (speed > 1) {
-        setState(() {
-          speed = speed - 1;
-        });
-      }
-    }
   }
 
   void findChar() async {
@@ -59,12 +45,27 @@ class _MyHomePageState extends State<MyHomePage> {
       var characteristics = service.characteristics;
       for (BluetoothCharacteristic c in characteristics) {
         if (c.uuid.toString() == '560d029d-57a1-4ccc-8868-9e4b4ef41da6') {
+          print(c.uuid.toString());
           setState(() {
             char = c;
+          });
+        } else if (c.uuid.toString() ==
+            'db433ed3-1e84-49d9-b287-487440e7137c') {
+          print(c.uuid.toString());
+          c.write([16], withoutResponse: true);
+          setState(() {
+            charS = c;
           });
         }
       }
     });
+  }
+
+  void changeSpeed(int message) async {
+    if (char != null) {
+      char.write([message], withoutResponse: true);
+      //List<int> response = await char.read();
+    }
   }
 
   void scanAndConnect() {
@@ -72,7 +73,7 @@ class _MyHomePageState extends State<MyHomePage> {
     loading = true;
     flutterBlue.startScan(
         scanMode: ScanMode.balanced, timeout: Duration(seconds: 4));
-    loading = false;
+    Timer(Duration(seconds: 4), () => loading = false);
   }
 
   Future<void> showList() async {
@@ -93,6 +94,9 @@ class _MyHomePageState extends State<MyHomePage> {
                           title: Text(r.device.name),
                           subtitle: Text(r.device.id.toString()),
                           onTap: () {
+                            if (device != null) {
+                              device.disconnect();
+                            }
                             r.device.connect();
                             setState(() {
                               device = r.device;
@@ -137,33 +141,52 @@ class _MyHomePageState extends State<MyHomePage> {
             ? null
             : Column(
                 mainAxisAlignment: MainAxisAlignment.center,
-                children: <Widget>[
-                  IconButton(
-                    onPressed: () {
-                      if (char != null) char.write([34], withoutResponse: true);
-                      incrementOrDecrement(true);
-                    },
-                    icon: Icon(Icons.arrow_drop_up),
-                    color: Colors.blue,
-                    iconSize: 100,
-                    splashColor: Colors.white,
-                  ),
-                  Text(
-                    '$speed',
-                    style: Theme.of(context).textTheme.display1,
-                  ),
-                  IconButton(
-                    onPressed: () {
-                      if (char != null) char.write([35], withoutResponse: true);
-                      incrementOrDecrement(false);
-                    },
-                    icon: Icon(Icons.arrow_drop_down),
-                    color: Colors.blue,
-                    iconSize: 100,
-                    splashColor: Colors.white,
-                  )
-                ],
+                children: (charS == null)
+                    ? <Widget>[Text('No characteristic matched!')]
+                    : <Widget>[
+                        IconButton(
+                          onPressed: () => changeSpeed(34),
+                          icon: Icon(Icons.arrow_drop_up),
+                          color: Colors.blue,
+                          iconSize: 100,
+                          splashColor: Colors.white,
+                        ),
+                        IntervalLabel(
+                          characteristic: charS,
+                        ),
+                        IconButton(
+                          onPressed: () => changeSpeed(35),
+                          icon: Icon(Icons.arrow_drop_down),
+                          color: Colors.blue,
+                          iconSize: 100,
+                          splashColor: Colors.white,
+                        )
+                      ],
               ),
+      ),
+    );
+  }
+}
+
+class IntervalLabel extends StatelessWidget {
+  const IntervalLabel({Key key, this.characteristic}) : super(key: key);
+  final BluetoothCharacteristic characteristic;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!characteristic.isNotifying) characteristic.setNotifyValue(true);
+
+    return Center(
+      heightFactor: 2.0,
+      child: StreamBuilder<List<int>>(
+        stream: characteristic.value,
+        initialData: characteristic.lastValue,
+        builder: (c, snapshot) {
+          return Text(
+            '${32 - snapshot.data[0]}',
+            style: Theme.of(context).textTheme.display1,
+          );
+        },
       ),
     );
   }
