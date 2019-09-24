@@ -72,8 +72,8 @@ class _MyHomePageState extends State<MyHomePage> {
     if (loading) return;
     loading = true;
     flutterBlue.startScan(
-        scanMode: ScanMode.balanced, timeout: Duration(seconds: 4));
-    Timer(Duration(seconds: 4), () => loading = false);
+        scanMode: ScanMode.balanced, timeout: Duration(seconds: 10));
+    Timer(Duration(seconds: 10), () => loading = false);
   }
 
   Future<void> showList() async {
@@ -88,23 +88,21 @@ class _MyHomePageState extends State<MyHomePage> {
                 stream: FlutterBlue.instance.scanResults,
                 initialData: [],
                 builder: (c, snapshot) => Column(
-                  children: snapshot.data
-                      .map(
-                        (r) => ListTile(
-                          title: Text(r.device.name),
-                          subtitle: Text(r.device.id.toString()),
-                          onTap: () {
-                            if (device != null) {
-                              device.disconnect();
-                            }
-                            r.device.connect();
-                            setState(() {
-                              device = r.device;
-                            });
-                          },
-                        ),
-                      )
-                      .toList(),
+                  children: snapshot.data.map((r) {
+                    return ListTile(
+                      title: Text(r.device.name),
+                      subtitle: Text(r.device.id.toString()),
+                      onTap: () {
+                        if (device != null) {
+                          device.disconnect();
+                        }
+                        r.device.connect();
+                        setState(() {
+                          device = r.device;
+                        });
+                      },
+                    );
+                  }).toList(),
                 ),
               ),
             ),

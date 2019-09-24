@@ -39,7 +39,7 @@ class MyCallbacks: public BLECharacteristicCallbacks {
 void setup() {
   
 
-  BLEDevice::init("ESP32_Athena_Jose");
+  BLEDevice::init("ESP32_Jose");
   
   BLEServer *pServer = BLEDevice::createServer();
 
@@ -62,12 +62,8 @@ void setup() {
   
   pinMode (LED_BUILTIN, OUTPUT);//Specify that LED pin is output
   pService->start();
-  
-
   BLEAdvertising *pAdvertising = pServer->getAdvertising();
   pAdvertising->start();
-  pChar->setValue((uint8_t*)&velocidade, 4);
-  pChar->notify();
 }
 
 void loop() {
